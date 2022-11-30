@@ -8,13 +8,16 @@ using System.Runtime.Serialization.Formatters.Binary;
 
 namespace laba11
 {
+    [Serializable]
     public enum gender { Male, Female }
+    [Serializable]
     public enum user_type { Employee, Guest, Abiturient}
+    [Serializable]
     public class Subject
     {
         public string Name { get; set; }
         public int Score { get; set; }
-        Subject(string name,int score)
+        public Subject(string name,int score)
         {
             if (score > 100 || score < 1)
                 throw new ArgumentException("Неверно введено значение балла!");
@@ -22,18 +25,111 @@ namespace laba11
             Name = name;
         }
     }
+    public class AuthManager
+    {
+        public void Register(User user)
+        {
+            if(user.Login.Trim() != "" && System.IO.File.Exists(@"\lab10\users\" + user.Login.Trim() + ".acc")==false)
+            {
+                var path1 = @"\lab10\users\" + user.Login.Trim() + ".acc";
+                var path2 = @"\lab10\users\" + user.Login.Trim() + ".acinf";
+                System.Runtime.Serialization.Formatters.Binary.BinaryFormatter formatter = new System.Runtime.Serialization.Formatters.Binary.BinaryFormatter();
+                using (System.IO.FileStream fs = new System.IO.FileStream(path1, System.IO.FileMode.OpenOrCreate)) //bin
+                {
+                    formatter.Serialize(fs, new UserAuth(user));
+                    fs.Close();
+                }
+                user.RegInfo();
+            }
+        }
+        public void Log_In(string login, string pass)
+        {
+            string path = (@"\lab10\users\" + login + ".acc");
+            string path2 = (@"\lab10\users\" + login + ".acinf");
+            if (File.Exists(path))
+            {
+                BinaryFormatter formatter = new BinaryFormatter();
+                var user = new UserAuth();
+                using (System.IO.FileStream fs = new System.IO.FileStream(path, System.IO.FileMode.OpenOrCreate)) //bin
+                {
+                    try { user = formatter.Deserialize(fs) as UserAuth; }
+                    catch (Exception ex) { }
+                    fs.Close();
+                }
+                if (pass == user.Password)
+                {
+                    User des_user;
+                    using (System.IO.FileStream fs = new System.IO.FileStream(path2, System.IO.FileMode.OpenOrCreate)) //bin
+                    {
+                        if (user.Type == user_type.Employee)
+                        {
+                            try 
+                            { 
+                                des_user = formatter.Deserialize(fs) as Employee;
+                                des_user.Auth();
+                            }
+                            catch (Exception ex) { }
+                        }
+                        else
+                        {
+                            try 
+                            { 
+                                des_user = formatter.Deserialize(fs) as Abiturient; 
+                                des_user.Auth(); 
+                            }
+                            catch (Exception ex) { }
+                        }
+                        fs.Close();
+                    }
+                }
+                else throw new Exception("Неверный логин или пароль!");
+            }
+            else throw new Exception("Неверный логин или пароль!");
+        }
+    }
+    [Serializable]
     public abstract class User
     {
         public string Password { get; set; }
         public string Login { get; set; }
         public string AuthCode { get; set; }
+        public user_type Type { get; set; }
         public virtual void Auth()
         {
         }
+        public virtual void RegInfo()
+        {
+            var path2 = @"\lab10\users\" + this.Login.Trim() + ".acinf";
+            System.Runtime.Serialization.Formatters.Binary.BinaryFormatter formatter = new System.Runtime.Serialization.Formatters.Binary.BinaryFormatter();
+            using (System.IO.FileStream fs = new System.IO.FileStream(path2, System.IO.FileMode.OpenOrCreate)) //bin
+            {
+                formatter.Serialize(fs, this);
+                fs.Close();
+            }
+        }
     }
+    [Serializable]
+    public class UserAuth : User
+    {
+        public UserAuth(string login, string password, string AuthCode_, user_type tp)
+        {
+            Login = login;
+            Password = password;
+            AuthCode = AuthCode_;
+            Type = tp;
+        }
+        public UserAuth(User user)
+        {
+            Login = user.Login;
+            Password = user.Password;
+            AuthCode = user.AuthCode;
+            Type = user.Type;
+        }
+        public UserAuth() { }
+    }
+    [Serializable]
     public class Person : User
     {
-        public user_type Type { get; set; }
         public string Name { get; set; }
         public string Surname { get; set; }
         public string Patronim { get; set; }
@@ -51,25 +147,7 @@ namespace laba11
         }
         public override void Auth()
         {
-            string path = (@"\lab10\users\" + Login + ".acc");
-            if (File.Exists(path))
-            {
-                BinaryFormatter formatter = new BinaryFormatter();
-                var user = new Employee();
-                using (System.IO.FileStream fs = new System.IO.FileStream(path, System.IO.FileMode.OpenOrCreate)) //bin
-                {
-                    try { user = formatter.Deserialize(fs) as Employee; }
-                    catch (Exception ex) { }
-                    fs.Close();
-                }
-                if (Password == user.Password)
-                {
-                    //base_form form = new base_form(user);
-                    //form.Show();
-                }
-                else throw new Exception("Неверный логин или пароль!");
-            }
-            else throw new Exception("Неверный логин или пароль!");
+            
         }
     }
     [Serializable]
@@ -100,31 +178,16 @@ namespace laba11
         }
         public override void Auth()
         {
-            string path = (@"\lab10\users\" + Login + ".acc");
-            if (File.Exists(path))
-            {
-                BinaryFormatter formatter = new BinaryFormatter();
-                var user = new Employee();
-                using (System.IO.FileStream fs = new System.IO.FileStream(path, System.IO.FileMode.OpenOrCreate)) //bin
-                {
-                    try { user = formatter.Deserialize(fs) as Employee; }
-                    catch { }
-                    fs.Close();
-                }
-                if (Password == user.Password)
-                {
-                    //base_form form = new base_form(user);
-                    //form.Show();
-                }
-                else throw new Exception("Неверный логин или пароль!");
-            }
-            else throw new Exception("Неверный логин или пароль!");
+            //System.Windows.Forms.MessageBox.Show("Вы вошли как преподаватель!");
+            employe_form form = new employe_form(this);
+            form.Show();
         }
     }
+    [Serializable]
     public class Abiturient : Person
     {
-        private List<Subject> subjects { get; }
-        private List<short> directions { get; }
+        public List<Subject> subjects { get; }
+        public List<short> directions { get; }
         public Abiturient() 
         {
             subjects = new List<Subject>();
@@ -184,25 +247,9 @@ namespace laba11
         }
         public override void Auth()
         {
-            string path = (@"\lab10\users\" + Login + ".acc");
-            if (File.Exists(path))
-            {
-                BinaryFormatter formatter = new BinaryFormatter();
-                var user = new Abiturient();
-                using (System.IO.FileStream fs = new System.IO.FileStream(path, System.IO.FileMode.OpenOrCreate)) //bin
-                {
-                    try { user = formatter.Deserialize(fs) as Abiturient; }
-                    catch {}
-                    fs.Close();
-                }
-                if (Password == user.Password)
-                {
-                    //base_form form = new base_form(user);
-                    //form.Show();
-                }
-                else throw new Exception("Неверный логин или пароль!");
-            }
-            else throw new Exception("Неверный логин или пароль!");
+            System.Windows.Forms.MessageBox.Show("Вы вошли как абитуриент!");
+            abitur_form form = new abitur_form(this);
+            form.Show();
         }
     }
 }
